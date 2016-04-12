@@ -1,0 +1,128 @@
+Blurb::
+Augments an existing Latin Hypercube Sampling (LHS) study
+
+Description::
+\c incremental_lhs will augment an existing LHS sampling study with
+more samples to get better estimates of mean, variance, and
+percentiles.  The number of samples in the second set MUST currently
+be 2 times the number of previous samples, although incremental
+sampling based on any power of two may be supported in future
+releases.
+
+<b> Default Behavior </b>
+
+Incremental Latin Hypercube Sampling is not used by default.  To
+change this behavior, the \c incremental_lhs keyword must be specified
+in conjuction with the \c sample_type keyword.  Additionally, a
+previous LHS (or incremental LHS) sampling study with sample size \f$
+N \f$ must have already been performed, and <b> the dakota restart
+file must be available from this previous study.</b> The variables
+and responses specifications must be the same in both studies.
+Incremental LHS sampling support both continuous uncertain 
+variables and discrete uncertain variables such as discrete distributions (e.g.
+binomial, Poisson, etc.) as well as histogram variables and
+uncertain set types.
+
+<b> Usage Tips </b>
+
+The incremental approach is useful if it is uncertain how many
+simulations can be completed within available time.
+
+See the examples below and 
+the \ref running_dakota-usage and \ref dakota_restart pages.
+
+Topics::	
+Examples::
+For example, say a user performs
+an initial study using \c lhs as the \c sample_type, and generates 10
+samples.
+
+One way to ensure the restart file is saved is to specify a non-default name,
+via a command line option:
+\verbatim 
+dakota -i LHS_10.in -w LHS_10.rst
+\endverbatim
+
+which uses the input file:
+
+\verbatim 
+# LHS_10.in
+
+environment
+  tabular_data
+    tabular_data_file = 'lhs10.dat'
+
+method
+  sampling
+    sample_type lhs
+    samples = 10
+
+model
+  single
+
+variables
+  uniform_uncertain = 2
+    descriptors  =   'input1'     'input2'
+    lower_bounds =  -2.0     -2.0
+    upper_bounds =   2.0      2.0
+
+interface
+  analysis_drivers 'text_book'
+    fork
+
+responses
+  response_functions = 1
+  no_gradients
+  no_hessians
+\endverbatim
+and the restart file is written to LHS_10.rst.
+
+
+Then an incremental LHS study can be run with:
+\verbatim 
+dakota -i LHS_20.in -r LHS_10.rst -w LHS_20.rst
+\endverbatim
+where \c LHS_20.in is shown below, and LHS_10.rst is the restart
+file containing the results of the previous LHS study.
+\verbatim 
+# LHS_20.in
+
+environment
+  tabular_data
+    tabular_data_file = 'lhs_incremental_20.dat'
+
+method
+  sampling
+    sample_type incremental_lhs
+    samples = 20
+    previous_samples = 10
+
+model
+  single
+
+variables
+  uniform_uncertain = 2
+    descriptors  =   'input1'     'input2'
+    lower_bounds =  -2.0     -2.0
+    upper_bounds =   2.0      2.0
+
+interface
+  analysis_drivers 'text_book'
+    fork
+
+responses
+  response_functions = 1
+  no_gradients
+  no_hessians
+\endverbatim
+
+The user will get 10 new LHS samples which
+maintain both the correlation and stratification of the original LHS
+sample. The new samples will be combined with the original
+samples to generate a combined sample of size 20.
+
+This is clearly seen by comparing the two tabular data files.
+
+Theory::
+Faq::
+See_Also::	

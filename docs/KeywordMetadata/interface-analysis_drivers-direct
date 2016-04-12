@@ -1,0 +1,31 @@
+Blurb::
+Run analysis drivers that are linked-to or compiled-with Dakota
+Description::
+The primary use of the direct interface is to invoke internal test
+functions that perform parameter to response mappings for simple
+functions as inexpensively as possible. These problems are compiled
+directly into the %Dakota executable as part of the direct function
+interface class and are used for algorithm testing. 
+
+%Dakota also supports direct interfaces to a few select simulation codes.
+One example is ModelCenter, a commercial simulation management
+framework from Phoenix Integration. To utilize this interface, a user
+must first define the simulation specifics within a ModelCenter
+session and then save these definitions to a ModelCenter configuration
+file. The \c analysis_components specification provides the means to
+communicate this configuration file to %Dakota's ModelCenter interface.
+
+Topics::
+Examples::
+The rosenbrock function is available as an executable, which can be
+launched with fork, and is also compiled with Dakota. The internal
+version can be launched with:
+\verbatim
+interface
+  analysis_drivers = 'rosenbrock'
+    direct
+\endverbatim
+
+Theory::
+Faq::
+See_Also::	

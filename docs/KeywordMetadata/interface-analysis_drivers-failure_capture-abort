@@ -1,0 +1,11 @@
+Blurb::
+(Default) Abort the Dakota job
+Description::
+\c abort will stop the Dakota job, as well as any other running
+analysis drivers.
+
+Topics::
+Examples::
+Theory::
+Faq::
+See_Also::	

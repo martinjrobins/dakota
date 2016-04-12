@@ -1,0 +1,26 @@
+Blurb::
+Name the response block, helpful when there are multiple
+
+Description::
+The optional block identifier \c id_responses specifies a string to
+uniquely identify a particular responses specification (typically used
+when there are multiple present).  A \ref model can then specify or
+point to this response set by specifying the same string in its \c
+responses_pointer specification. For example, a model whose
+specification contains <tt>responses_pointer = 'R1'</tt> will use a
+responses set with <tt>id_responses = 'R1'</tt>.
+
+If the \c id_responses specification is omitted, a particular
+responses specification will be used by a model only if that model
+omits specifying a \c responses_pointer and if the responses set was
+the last set parsed (or is the only set parsed). In common practice,
+if only one responses set exists, then \c id_responses can be safely
+omitted from the responses specification and \c responses_pointer can
+be omitted from the model specification(s), since there is no
+potential for ambiguity in this case.
+
+Topics::	block_identifier
+Examples::
+Theory::
+Faq::
+See_Also::	

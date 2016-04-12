@@ -1,0 +1,58 @@
+Blurb::
+Augments an existing random sampling study
+
+Description::
+\c incremental_random will augment an existing random sampling study
+with more samples to get better estimates of mean, variance, and
+percentiles.  There is no constraint on the number of samples in the second set
+as there is with incremental LHS.  With \c incremental_random, 
+one can have different sample sizes in the original and incremental set. 
+This method can be used, for example, if you have 50 samples from a first 
+study and find out that you are able to run 10 more samples. 
+
+<b> Default Behavior </b>
+
+Incremental random sampling is not used by default.  To change this
+behavior, the \c incremental_random keyword must be specified in
+conjuction with the \c sample_type keyword.  Additionally, a previous
+random sampling study with sample size N must have already been
+performed, and the dakota restart file must be available from this
+previous study. The variables and responses specifications must be the
+same in both studies.
+
+<b> Usage Tips </b>
+
+The incremental approach is useful if it is uncertain how many
+simulations can be completed within available time.
+
+Topics::	
+Examples::
+For example, say a user performs
+an initial study using \c random as the \c sample_type, and generates 50
+samples. If the user creates a new input file where \c samples is now
+specified to be 60, the \c sample_type is defined to be \c
+incremental_random, and \c previous_samples is
+specified to be 50, the user will get 10 new random samples. 
+The M new samples will be combined with the N previous
+samples to generate a combined sample of size M+N. 
+
+The method block would be the following:
+\verbatim
+method
+  sampling
+    sample_type incremental_random
+    samples = 60
+    previous_samples = 50
+\endverbatim
+The syntax for
+running the second sample set is: 
+\verbatim 
+dakota -i input2.in -r dakota.rst
+\endverbatim
+where \c input2.in is the file which specifies
+incremental sampling and dakota.rst is the restart
+file containing the results of the previous study. 
+
+Theory::
+Faq::
+See_Also::	

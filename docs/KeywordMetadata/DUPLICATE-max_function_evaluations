@@ -1,0 +1,10 @@
+Blurb::
+Stopping criteria based on number of function evaluations
+Description::
+The maximum number of function evaluations (default: 1000).  See also \c max_iterations.
+
+Topics::	method_independent_controls
+Examples::
+Theory::
+Faq::
+See_Also::

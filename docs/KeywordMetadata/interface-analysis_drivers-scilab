@@ -1,0 +1,23 @@
+Blurb::
+Run Scilab with a direct interface - requires special Dakota build
+Description::
+%Dakota supports library-linked interfaces to Matlab, Scilab, and
+Python scientific computation software, but they must be explicitly
+enabled when compiling %Dakota from source. First consult the Users
+Manual \cite UsersMan for discussion and
+examples. 
+
+Contact the %Dakota users mailing list for assistance
+building and using %Dakota with these interfaces. 
+
+In all these
+interfaces, the \c analysis_driver is used to specify a Matlab,
+Scilab, or Python file which implements the parameter to response
+mapping.
+
+
+Topics::
+Examples::
+Theory::
+Faq::
+See_Also::	

@@ -1,0 +1,139 @@
+Blurb::
+Specify a text file containing calibration data for scalar responses
+
+Description::
+
+Enables text file import of experimental observations for use in
+calibration, for scalar responses only.  Dakota will calibrate model
+variables to best match tese data.  Key options include:
+  \li format: whether the data file is in \c annotated, \c
+    custom_annotated, or \c freeform format
+  \li content: where \c num_experiments, \c
+    num_config_variables, and \c variance_type indicate which
+    columns appear in the data.
+
+While some components may be omitted, the most complete version of a
+an annotated calibration data file could include columns corresponding
+to:
+\verbatim
+exp_id | configuration xvars | y data observations | y data variances
+\endverbatim
+
+Each row in the file corresponds to an experiment or replicate
+observation of an experiment to be compared to the model output.
+
+<b> Usage Tips </b>
+
+\li The \c calibration_data_file used when ONLY scalar calibration
+terms are present.  If there are field calibration terms, instead use
+\c calibration_data.  For mixed scalar and field calibration terms, on
+may use the \c calibration_data specification, together with its
+sub-specification \c scalar_data_file, which uses the format described
+here.
+
+<b> Simple Case </b>
+
+In the simplest case, no data content descriptors are specified, so
+the data file must contain only the \f$ y^{Data} \f$ observations which
+represent a single experimental observation.  In this case, the data
+file should have \f$ N_{terms} \f$ columns and 1 row, where \f$
+N_{terms} \f$ is the value of \ref responses-calibration_terms.
+
+For each function evaluation, Dakota will run the analysis driver,
+which must return \f$ N_{terms} \f$ model responses. Then the
+residuals are computed as: \f[ R_{i} = y^{Model}_i - y^{Data}_{i}. \f]
+
+These residuals can be weighted using \ref responses-calibration_terms-weights.
+
+<b> With experimental variances </b>
+
+If information is known about the measurement error and the uncertainty in the measurement, 
+that can be specified by sending the measurement error variance to Dakota. 
+In this case, the keyword \c variance_type is added, followed 
+by a string of variance types of length one or of length 
+\f$N_{terms} \f$ , where \f$
+N_{terms} \f$ is the value of \ref responses-calibration_terms.
+The \c variance_type for each response can be 'none' or 'scalar'. 
+NOTE:  you must specify the same \c variance_type for all scalar terms. 
+That is, they will all be 'none' or all be 'scalar.'
+
+For each response that has a 'scalar' variance type, 
+each row of the datafile will now have \f$ N_{terms} \f$ of
+\f$ y \f$ data values followed by \f$ N_{terms} \f$ columns that specify 
+the measurement error (in units of variance, not standard deviation of the measurement error) 
+for \f$ y \f$ variances. 
+
+Dakota will run the analysis driver, which must return \f$ N_{terms}
+\f$ responses. Then the residuals are computed as: 
+
+\f[ R_{i} = \frac{y^{Model}_i - y^{Data}_{i}}{\sqrt{{var}_i}} \f] 
+
+for \f$ i = 1 \dots N_{terms} \f$.  
+
+<b> Fully general case </b>
+
+In the most general case, the content of the data file is described by
+the arguments of three parameters. The parameters are optional, and
+defaults are described below.
+
+<ul>
+  <li> \c num_experiments ( \f$ N_{exp} \f$ )
+
+    Default: \f$ N_{exp} = 1 \f$ 
+
+    This indicates that the data represents multiple experiments,
+    where each experiment might be conducted with different values of
+    configuration variables.  An experiment can also be thought 
+    of as a replicate, where the experiments are 
+    run at the same values of the configuration variables. 
+  </li>
+  <li> \c num_config_variables ( \f$ N_{cfg} \f$ )
+
+    This is not yet supported, but will specify the values of
+    experimental conditions at which data were collected.
+
+  </li>
+  <li> \c variance_type ('none' or 'scalar')
+
+    This indicates if the data file contains variances for measurement error 
+    of the experimental data.  The default is 'none'.
+
+  </li>
+</ul>
+
+If the user does not specify \c variance_type, or if the \c variance_type = 'none', 
+only the actual observations are specified in the \c calibration_data_file. 
+If the user specifies \c variance_type = 'scalar', then the \c calibration_data_file 
+must contain two times \c calibration_terms.
+The first \c calibration_terms columns are the experimental data, and
+the second \c calibration_terms columns are the experimental measurement error variance.
+For example, if the user has three \c calibration terms,
+and specifies \c variance_type = 'scalar', then the calibration data
+must contain six columns. The first three columns will contain the
+data, and the second three columns will contain the experimental error (in units of variance)
+for the data in the first three columns. 
+These variances are used to weight the residuals in the sum-of-squares
+objective.
+
+A more advanced use of the \c calibration_data_file might specify \c
+num_experiments \f$ N_E \f$ 
+indicating that there are multiple experiments.
+When multiple experiments are present, %Dakota will expand the number of residuals
+for the repeat measurement data and difference with the data
+accordingly. For example, if the user has five experiments
+in the example above with three calibration
+terms, the \c calibration_data_file would need to contain five rows
+(one for each experiment), and each row should contain three
+experimental data values that will be differenced with respect to the
+appropriate model response. In this example, \f$ N_E = 5 \f$.
+To summarize, %Dakota
+will calculate the sum of the squared residuals as: \f[f =
+\sum_{i=1}^{N_E}R_{i}^2\f] where the residuals
+now are calculated as: \f[R_{i} = y^{Model}_i(\theta) - y^{Data}_{i}. \f]
+
+
+Topics::	
+Examples::
+Theory::
+Faq::
+See_Also::	

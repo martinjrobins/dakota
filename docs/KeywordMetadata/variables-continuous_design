@@ -1,0 +1,12 @@
+Blurb::
+Continuous design variables; each defined by a real interval
+
+Description::
+Continuous variables that are changed during the search for the optimal
+design.
+
+Topics::	continuous_variables, design_variables
+Examples::
+Theory::
+Faq::
+See_Also::	

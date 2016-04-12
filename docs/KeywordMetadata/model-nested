@@ -1,0 +1,78 @@
+Blurb::
+A model whose responses are computed through the use of a sub-iterator
+Description::
+Instead of appealing directly to a primary interface, a nested model
+maps variables to responses by executing a secondary iterator, or a 
+"sub-iterator".
+In other words, a function evaluation of the primary study consists of a
+solution of an entire secondary study - potentially many secondary
+function evaluations.
+
+The sub-iterator in turn operates on a
+sub-model. The sub-iterator responses may be combined with non-nested
+contributions from an optional interface specification.
+
+A <b> \c sub_method_pointer </b> must be provided
+in order to specify the method block describing the sub-iterator.
+The remainder of the model is specified under that keyword.
+
+A \b \c optional_interface_pointer points
+to the interface specification and \c
+optional_interface_responses_pointer points to a responses
+specification describing the data to be returned by this interface).
+This interface is used to provide non-nested data, which is then
+combined with data from the nested iterator using the \c
+primary_response_mapping and \c secondary_response_mapping inputs (see
+mapping discussion below).
+
+Topics::
+Examples::
+An example of variable and response mappings is provided below:
+\verbatim
+primary_variable_mapping  = '' '' 'X'   'Y'
+secondary_variable_mapping = '' '' 'mean' 'mean'
+primary_response_mapping  = 1. 0. 0. 0. 0. 0. 0. 0. 0.
+secondary_response_mapping = 0. 0. 0. 1. 3. 0. 0. 0. 0.
+               0. 0. 0. 0. 0. 0. 1. 3. 0.
+\endverbatim
+
+The variable mappings correspond to 4 top-level variables, the first
+two of which employ the default mappings from active top-level
+variables to sub-model variables of the same type (option 3 above) and
+the latter two of which are inserted into the mean distribution
+parameters of sub-model variables \c 'X' and \c 'Y' (option 1 above).
+The response mappings define a 3 by 9 matrix corresponding to 9 inner
+loop response attributes and 3 outer loop response functions (one
+primary response function and 2 secondary functions, such as one
+objective and two constraints). Each row of the response mapping is a
+vector which is multiplied (i.e, with a dot-product) against the 9
+sub-iterator values to determine the outer loop function. Consider a
+UQ example with 3 response functions, each providing a mean, a
+standard deviation, and one level mapping (if no level mappings are
+specified, the responses would only have a mean and standard
+deviation). The primary response mapping can be seen to extract the
+first value from the inner loop, which would correspond to the mean of
+the first response function. This mapped sub-iterator response
+becomes a single objective function, least squares term, or generic
+response function at the outer level, as dictated by the top-level
+response specification. The secondary response mapping maps the
+fourth sub-iterator response function plus 3 times the fifth
+sub-iterator response function (mean plus 3 standard deviations) into
+one top-level nonlinear constraint and the seventh sub-iterator
+response function plus 3 times the eighth sub-iterator response
+function (mean plus 3 standard deviations) into another top-level
+nonlinear constraint, where these top-level nonlinear constraints may
+be inequality or equality, as dictated by the top-level response
+specification. Note that a common case is for each sub-iterator
+response to be mapped to a unique outer loop response (for example, in
+the nested UQ case where one wants to determine an interval on each
+inner loop statistic). In these simple cases, the response mapping
+would define an identity matrix. <!-- That is, the primary response
+mapping will have N rows and N columns corresponding to the N
+sub-iterator response values, and the mapping matrix will have a value
+of one along the diagonal and zeros elsewhere. -->
+
+
+Theory::
+Faq::
+See_Also::	model-single, model-surrogate 
