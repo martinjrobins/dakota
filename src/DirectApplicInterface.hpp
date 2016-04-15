@@ -34,7 +34,9 @@ enum var_t { VAR_x1, VAR_x2, VAR_x3, // generic (Rosenbrock, Ishigami)
 	     VAR_w, VAR_t, VAR_R, VAR_E, VAR_X, /* VAR_Y, */ // cantilever beam
 	     VAR_Fs, VAR_P1, VAR_P2, VAR_P3, VAR_B, VAR_D, VAR_H,
 	     VAR_F0, VAR_d, /* VAR_b, VAR_h, VAR_E */ // steel column
-	     VAR_MForm }; // mf_*() test functions
+	     VAR_MForm,
+         VAR_k0, VAR_alpha, VAR_E0, VAR_Cdl}; // mf_*() test functions
+
 //enum x3_var_t  { X1, X2, X3 }; // generic up to 3 dimensions
 //enum shc_var_t { SHC_B, SHC_H, SHC_P, SHC_M, SHC_Y }; // short column
 //enum cb_var_t  { CB_W, CB_T, CB_R, CB_E, CB_X, CB_Y }; // cantilever beam
@@ -58,7 +60,8 @@ enum driver_t { NO_DRIVER=0, CANTILEVER_BEAM, MOD_CANTILEVER_BEAM,
 		ILLUMINATION, BARNES, BARNES_LF,
 		HERBIE, SMOOTH_HERBIE, SHUBERT,
 		SALINAS, MODELCENTER, GENZ, DAMPED_OSCILLATOR,
-		ANISOTROPIC_QUADRATIC_FORM , BAYES_LINEAR, DIFFUSION_1D};
+		ANISOTROPIC_QUADRATIC_FORM , BAYES_LINEAR, DIFFUSION_1D,
+        E_SURFACE, E_SOLUTION, SEQ_ELECTRON_TRANSFER};
 
 /// enumeration for how local variables are stored (values must employ
 /// a bit representation)
