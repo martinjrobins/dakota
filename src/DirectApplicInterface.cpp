@@ -403,8 +403,9 @@ set_local_data(const Variables& vars, const ActiveSet& set)
     const RealVector& adrv = vars.all_discrete_real_variables();
     StringMultiArrayConstView adsv = vars.all_discrete_string_variables();
     xCM.clear(); xDIM.clear(); xDRM.clear(); xDSM.clear(); // more rigorous than overwrite
-    for (i=0; i<numACV; ++i)
+    for (i=0; i<numACV; ++i) {
       xCM[xCMLabels[i]] = acv[i];
+    }
     for (i=0; i<numADIV; ++i)
       xDIM[xDIMLabels[i]] = adiv[i];
     for (i=0; i<numADRV; ++i)

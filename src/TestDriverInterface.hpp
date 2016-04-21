@@ -16,6 +16,7 @@
 #define TEST_DRIVER_INTERFACE_H
 
 #include "DirectApplicInterface.hpp"
+#include <string>
 
 namespace Dakota {
 
@@ -47,6 +48,8 @@ private:
   //- Heading: Simulators and test functions
   //
 
+  int e_surface_driver();
+  int e_solution_driver();
   int cantilever();   ///< scaled cantilever test function for optimization
   int mod_cantilever(); ///< unscaled cantilever test function for UQ
   int cyl_head();     ///< the cylinder head constrained optimization test fn
@@ -148,7 +151,15 @@ private:
   // test functions for high dimensional models with active subspace structure
 
   int aniso_quad_form();     ///< 1-D function using a anisotropic quadratic
+
                              ///< form
+                             ///
+
+  // martinjrobins stuff
+  void read_in_data(std::string filename);
+  std::vector<double> expI,expt;
+  std::vector<double> Itot,t;
+  std::map<std::string,double> dim_params,params;
 
 };
 

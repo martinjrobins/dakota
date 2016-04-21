@@ -35,7 +35,7 @@ enum var_t { VAR_x1, VAR_x2, VAR_x3, // generic (Rosenbrock, Ishigami)
 	     VAR_Fs, VAR_P1, VAR_P2, VAR_P3, VAR_B, VAR_D, VAR_H,
 	     VAR_F0, VAR_d, /* VAR_b, VAR_h, VAR_E */ // steel column
 	     VAR_MForm,
-         VAR_k0, VAR_alpha, VAR_E0, VAR_Cdl}; // mf_*() test functions
+         VAR_k0, VAR_alpha, VAR_E0, VAR_Cdl, VAR_Ru}; // mf_*() test functions
 
 //enum x3_var_t  { X1, X2, X3 }; // generic up to 3 dimensions
 //enum shc_var_t { SHC_B, SHC_H, SHC_P, SHC_M, SHC_Y }; // short column

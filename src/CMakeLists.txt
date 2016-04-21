@@ -469,10 +469,9 @@ set(interface_src DakotaInterface.cpp ApproximationInterface.cpp
     ApplicationInterface.cpp ProcessApplicInterface.cpp
     ProcessHandleApplicInterface.cpp SysCallApplicInterface.cpp
     CommandShell.cpp DirectApplicInterface.cpp TestDriverInterface.cpp
-    MartinJRobinsDriverInterface.cpp 
-    martinjrobins/e_implicit_exponential_mesh.cpp
+    martinjrobins/e_solution.cpp
     martinjrobins/e_surface.cpp
-    martinjrobins/seq_electron_transfer3.cpp
+    martinjrobins/seq_electron_transfer.cpp
     )
 if(HAVE_SYS_WAIT_H AND HAVE_UNISTD_H)
   list(APPEND interface_src ForkApplicInterface.cpp)

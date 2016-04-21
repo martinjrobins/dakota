@@ -73,7 +73,7 @@ struct TolFun {
     const double tol;
 };
 
-void e_implicit_exponential_mesh(map& params, vector& Itot, vector& t) {
+void e_solution(map& params, vector& Itot, vector& t) {
     const double k0 = get(params,std::string("k0"),35.0);
     const double alpha = get(params,std::string("alpha"),0.5);
     const double Cdl = get(params,std::string("Cdl"),0.0037);

@@ -26,6 +26,8 @@
 #include "Teuchos_SerialDenseHelpers.hpp"
 #include "NonDLHSSampling.hpp"
 #include "spectral_diffusion.hpp"
+#include "martinjrobins/sinusoidal_voltammetry.hpp"
+
 
 namespace Dakota {
 
@@ -37,7 +39,6 @@ MartinJRobinsDriverInterface::MartinJRobinsDriverInterface(const ProblemDescDB& 
   // at the base class
   driverTypeMap["e_surface"]              = E_SURFACE;
   driverTypeMap["e_solution"]             = E_SOLUTION;
-  driverTypeMap["seq_electron_transfer"]  = SEQ_ELECTRON_TRANSFER;
 
   // convert strings to enums for analysisDriverTypes, iFilterType, oFilterType
   analysisDriverTypes.resize(numAnalysisDrivers);
@@ -104,8 +105,6 @@ MartinJRobinsDriverInterface::~MartinJRobinsDriverInterface()
 /** Derived map to evaluate a particular built-in test analysis function */
 int MartinJRobinsDriverInterface::derived_map_ac(const String& ac_name)
 {
-  // NOTE: a Factory pattern might be appropriate in the future to manage the
-  // conditional presence of linked subroutines in MartinJRobinsDriverInterface.
 
 #ifdef MPI_DEBUG
     Cout << "analysis server " << analysisServerId << " invoking " << ac_name
@@ -117,14 +116,13 @@ int MartinJRobinsDriverInterface::derived_map_ac(const String& ac_name)
     = (sd_iter!=driverTypeMap.end()) ? sd_iter->second : NO_DRIVER;
   switch (ac_type) {
   case E_SURFACE:
-    fail_code = e_surface(); break;
+    fail_code = e_surface_driver(); break;
   case E_SOLUTION:
-    fail_code = e_solution(); break;
-  case SEQ_ELECTRON_TRANSFER:
-    fail_code = seq_electron_transfer(); break;
+    fail_code = e_solution_driver(); break;
   default: {
     Cerr << "Error: analysis_driver '" << ac_name << "' is not available in "
 	 << "the direct interface." << std::endl;
+    Cerr << "test"<<std::endl;
     abort_handler(INTERFACE_ERROR);
   }
   }
@@ -144,14 +142,14 @@ int MartinJRobinsDriverInterface::derived_map_ac(const String& ac_name)
 // Begin direct interfaces to test functions
 // -----------------------------------------
 
-int MartinJRobinsDriverInterface::e_surface(){
+int MartinJRobinsDriverInterface::e_surface_driver(){
 
   if (multiProcAnalysisFlag) {
-    Cerr << "Error: damped oscillator direct fn does not support "
+    Cerr << "Error: e_surface direct fn does not support "
 	 << "multiprocessor analyses." << std::endl;
     abort_handler(-1);
   }
-  if (numVars < 1 || numVars > 6 || numADIV || numADRV) {
+  if (numVars < 1 || numVars > 5 || numADIV || numADRV) {
     Cerr << "Error: Bad variable types in e_surface direct fn."
 	 << std::endl;
     abort_handler(INTERFACE_ERROR);
@@ -167,13 +165,7 @@ int MartinJRobinsDriverInterface::e_surface(){
     abort_handler(INTERFACE_ERROR);
   }
 
-  Real initial_time = 0., final_time = 20., //delta_t = 0.3;
-    delta_t = (final_time - initial_time) / numFns;
-  //int num_time_steps = numFns;
-
-  Real pi = 4.0 * std::atan( 1.0 );
-
-  Real k0 = xC[0], alpha = 0.5, E0 = 0.0, Cdl = 0.0037, Ru = 2.74;
+  Real k0 = xC[0], alpha = 0.5, E0 = -15.996842, Cdl = 5.245566, Ru = 0.000028;
   if ( numVars >= 2 ) alpha  = xC[1];
   if ( numVars >= 3 ) E0  = xC[2];
   if ( numVars >= 4 ) Cdl  = xC[3];
@@ -192,22 +184,100 @@ int MartinJRobinsDriverInterface::e_surface(){
   params["omega"] = 51.764579;
   std::vector<double> Itot,t;
 
+  Real initial_time = 0.0;
+  Real final_time = 2.0*(params["Ereverse"]-params["Estart"]);
+  Real delta_t = 0.3;
+  delta_t = (final_time - initial_time) / numFns;
+  t.resize(numFns);
+
+
+  for (size_t i=0; i<numFns; ++i) {
+      t[i] = i*delta_t;
+  }
+
+
+  std::cout << "running e_surface with k0 = "<<params["k0"]<<std::endl;
+
   e_surface(params,Itot,t);
 
   // response at initial time isn't included as it isn't a fn of some params.
   Real time = initial_time, y_stead, y_trans;
   for (size_t i=0; i<numFns; ++i) {
-    time += delta_t;
     if (directFnASV[i] & 1) {
-      // Steady state solution (y_stead) for rhs = 0
-      y_stead = F * std::sin( w*time + phi ) / zeta;
-      // Compute transient (y_trans) component of solution
-      y_trans = std::exp( -g*time )*( A1 * std::cos( wd*time ) +
-				      A2 * std::sin( wd*time ) );
-      fnVals[i] = y_stead + y_trans;
+      fnVals[i] = Itot[i];
     }
   }
 
   return 0; // no failure
 }
+
+
+
+int MartinJRobinsDriverInterface::e_solution_driver(){
+
+  if (multiProcAnalysisFlag) {
+    Cerr << "Error: e_surface direct fn does not support "
+	 << "multiprocessor analyses." << std::endl;
+    abort_handler(-1);
+  }
+  if (numVars < 1 || numVars > 5 || numADIV || numADRV) {
+    Cerr << "Error: Bad variable types in e_surface direct fn."
+	 << std::endl;
+    abort_handler(INTERFACE_ERROR);
+  }
+  if (numFns < 1) {
+    Cerr << "Error: Bad number of functions in e_surface direct fn."
+	 << std::endl;
+    abort_handler(INTERFACE_ERROR);
+  }
+  if (hessFlag || gradFlag) {
+    Cerr << "Error: Gradients and Hessians not supported in e_surface"
+	 << "direct fn." << std::endl;
+    abort_handler(INTERFACE_ERROR);
+  }
+
+  Real k0 = xC[0], alpha = 0.5, E0 = 0.0, Cdl = 0.0037, Ru = 2.74;
+  if ( numVars >= 2 ) alpha  = xC[1];
+  if ( numVars >= 3 ) E0  = xC[2];
+  if ( numVars >= 4 ) Cdl  = xC[3];
+  if ( numVars >= 5 ) Ru = xC[4];
+
+  std::map<std::string,double> params;
+  params["k0"] = k0;
+  params["alpha"] = alpha;
+  params["Cdl"] = Cdl;
+  params["Ru"] = Ru;
+  params["E0"] = E0;
+  // params for GC01_FeIII-1mM_1M-KCl_02_009Hz.txt
+  params["dE"] = 3.125797;
+  params["Estart"] = -3.907246;
+  params["Ereverse"] = -19.536232;
+  params["omega"] = 16.214305;
+  std::vector<double> Itot,t;
+
+  Real initial_time = 0.0;
+  Real final_time = 2.0*(params["Ereverse"]-params["Estart"]);
+  Real delta_t = 0.3;
+  delta_t = (final_time - initial_time) / numFns;
+  t.resize(numFns);
+
+  for (size_t i=0; i<numFns; ++i) {
+      t[i] = i*delta_t;
+  }
+
+  e_solution(params,Itot,t);
+
+  // response at initial time isn't included as it isn't a fn of some params.
+  Real time = initial_time, y_stead, y_trans;
+  for (size_t i=0; i<numFns; ++i) {
+    if (directFnASV[i] & 1) {
+      fnVals[i] = Itot[i];
+    }
+  }
+
+  return 0; // no failure
+}
+
+
+
 }  // namespace Dakota

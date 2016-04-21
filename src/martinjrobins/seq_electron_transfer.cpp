@@ -85,7 +85,7 @@ struct seq_elec_fun {
     }
 };
 
-void seq_electron_transfer3(map& params, vector& Itot, vector& t) {
+void seq_electron_transfer(map& params, vector& Itot, vector& t) {
     const double k01 = get(params,std::string("k01"),35.0);
     const double k02 = get(params,std::string("k02"),65.0);
     const double alpha1 = get(params,std::string("alpha1"),0.5);

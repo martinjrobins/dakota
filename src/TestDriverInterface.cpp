@@ -26,6 +26,12 @@
 #include "Teuchos_SerialDenseHelpers.hpp"
 #include "NonDLHSSampling.hpp"
 #include "spectral_diffusion.hpp"
+#include "martinjrobins/sinusoidal_voltammetry.hpp"
+
+#include <iostream>
+#include <fstream>
+#include <assert.h>
+#include <boost/math/constants/constants.hpp>
 
 namespace Dakota {
 
@@ -96,6 +102,8 @@ TestDriverInterface::TestDriverInterface(const ProblemDescDB& problem_db)
   driverTypeMap["diffusion_1d"]           = DIFFUSION_1D;
   driverTypeMap["aniso_quad_form"]        = ANISOTROPIC_QUADRATIC_FORM;
   driverTypeMap["bayes_linear"]           = BAYES_LINEAR;
+  driverTypeMap["e_surface"]              = E_SURFACE;
+  driverTypeMap["e_solution"]             = E_SOLUTION;
 
   // convert strings to enums for analysisDriverTypes, iFilterType, oFilterType
   analysisDriverTypes.resize(numAnalysisDrivers);
@@ -144,6 +152,7 @@ TestDriverInterface::TestDriverInterface(const ProblemDescDB& problem_db)
     case ROSENBROCK:   case LF_ROSENBROCK:   case MF_ROSENBROCK:
     case SHORT_COLUMN: case LF_SHORT_COLUMN: case MF_SHORT_COLUMN:
     case SOBOL_ISHIGAMI: case STEEL_COLUMN_COST: case STEEL_COLUMN_PERFORMANCE:
+    case E_SURFACE: case E_SOLUTION:
       localDataView |= VARIABLES_MAP;    break;
     case NO_DRIVER: // assume VARIABLES_VECTOR approach for plug-ins for now
     case CYLINDER_HEAD:       case LOGNORMAL_RATIO:     case MULTIMODAL:
@@ -191,6 +200,10 @@ TestDriverInterface::TestDriverInterface(const ProblemDescDB& problem_db)
       varTypeMap["H"]  = VAR_H;  //varTypeMap["b"] = VAR_b;
       varTypeMap["d"]  = VAR_d;  //varTypeMap["h"] = VAR_h;
       varTypeMap["F0"] = VAR_F0; //varTypeMap["E"] = VAR_E; break;
+
+      varTypeMap["k0"] = VAR_k0; varTypeMap["alpha"] = VAR_alpha;
+      varTypeMap["E0"] = VAR_E0; varTypeMap["Cdl"]  = VAR_Cdl;
+      varTypeMap["Ru"] = VAR_Ru;
     //}
   }
 }
@@ -315,9 +328,14 @@ int TestDriverInterface::derived_map_ac(const String& ac_name)
     fail_code = aniso_quad_form(); break;
   case BAYES_LINEAR: 
     fail_code = bayes_linear(); break;
+  case E_SURFACE:
+    fail_code = e_surface_driver(); break;
+  case E_SOLUTION:
+    fail_code = e_solution_driver(); break;
   default: {
     Cerr << "Error: analysis_driver '" << ac_name << "' is not available in "
 	 << "the direct interface." << std::endl;
+    Cerr << "test2" << std::endl;
     abort_handler(INTERFACE_ERROR);
   }
   }
@@ -331,6 +349,372 @@ int TestDriverInterface::derived_map_ac(const String& ac_name)
 
   return 0;
 }
+
+
+
+void get_characteristic_values(std::map<std::string,double> &dim_params,
+        double &E_0, double &T_0, double &L_0, double &I_0) {
+    const double v = dim_params["v"];
+    const double T = dim_params["T"];
+    const double a = dim_params["a"];
+    //Faraday constant (C mol-1)
+    const double F = 96485.3328959;
+    //gas constant (J K-1 mol-1)
+    const double R = 8.314459848;
+
+    E_0 = R*T/F;
+    T_0 = std::abs(E_0/v);
+
+    //if (dim_params["domain"] == 'oneD':
+    //    D = dim_params['D']
+    //    L_0 = sqrt(D*T_0)
+    //    c_inf = dim_params['c_inf']
+    //    I_0 = D*F*a*c_inf/L_0
+    //elif dim_params['domain'] == 'surface':
+    const double Gamma = dim_params["Gamma"];
+    L_0 = 1.0;
+    I_0 = F*a*Gamma/T_0;
+}
+
+void non_dim(std::map<std::string,double> &params, std::map<std::string,double> &dim_params,
+        std::vector<double> &expt, std::vector<double> &expI) {
+    bool reversed = false;
+    if (dim_params["Ereverse"] < dim_params["Estart"]) {
+        dim_params["E0"] = dim_params["Estart"] - (dim_params["E0"] - dim_params["Ereverse"]);
+        const double tmp = dim_params["Estart"];
+        dim_params["Estart"] = dim_params["Ereverse"];
+        dim_params["Ereverse"] = tmp;
+        reversed = true;
+    }
+    double E_0,T_0,L_0,I_0;
+    get_characteristic_values(dim_params,E_0,T_0,L_0,I_0);
+    params["E_0"] = E_0;
+    params["T_0"] = T_0;
+    params["L_0"] = L_0;
+    params["I_0"] = I_0;
+
+    //clean and downsample data
+    const double Estart = dim_params["Estart"];
+    const double Ereverse = dim_params["Ereverse"];
+    const double v = dim_params["v"];
+    const double omega = dim_params["omega"];
+    const double period = 2*std::abs((Estart-Ereverse)/v);
+    const double dt = expt[100]-expt[99];
+    const double samples_per_period = 1.0/(omega*dt);
+    int downsample = int(std::floor(samples_per_period/200.0));
+    if (downsample == 0) downsample = 1;
+
+    const int new_length = int(expt.size()/downsample);
+    const int pad_size = std::ceil(float(expt.size())/downsample)*downsample - expt.size();
+    for (int i=0; i<new_length; i++) {
+        double sumI = 0.0;
+        double sumt = 0.0;
+        for (int j=0; j<downsample; j++) {
+            const int old_index = i*downsample + j;
+            if (old_index < expI.size()) {
+                sumI += expI[old_index];
+                sumt += expt[old_index];
+            }
+        }
+        expI[i] = sumI/downsample;
+        expt[i] = sumt/downsample;
+        //expI[i] = expI[i*downsample];
+        //expt[i] = expt[i*downsample];
+    }
+    expI.resize(new_length);
+    expt.resize(new_length);
+    const double t0 = expt[0];
+    int i;
+    for (i=0; i<new_length; i++) {
+        expt[i] -= t0;
+        if (reversed) expI[i] *= -1;
+        if (expt[i] >= period) {
+            break;
+        }
+    }
+    expI.resize(i);
+    expt.resize(i);
+
+    std::cout << "after data cleanup, new data length = "<<expt.size()<<std::endl;
+
+    //non-dim the data
+    for (int i=0; i<expt.size(); i++) {
+        expt[i] /= T_0;
+        expI[i] /= I_0;
+    }
+
+    std::cout << "time span after cleanup is "<<expt[0]<<" to "<<*(expt.end()-1)<<std::endl;
+
+    //non-dim the params
+    //params['problem_code'] = problem_to_code(dim_params['problem'])
+    //params['domain_code'] = domain_to_code(dim_params['domain'])
+    //params['dispersion'] = float(dim_params['dispersion'])
+    params["Estart"] = dim_params["Estart"]/E_0;
+    params["Ereverse"] = dim_params["Ereverse"]/E_0;
+    const double pi = boost::math::constants::pi<double>();
+    params["omega"] = 2*pi*dim_params["omega"]*T_0;
+    if (reversed) {
+        params["phase"] = pi;
+    } else {
+        params["phase"] = 0;
+    }
+    params["dE"] = dim_params["dE"]/E_0;
+
+    //if dim_params["domain"] == "surface":;
+    params["kscale"] = T_0;
+    //elif dim_params["domain"] == "oneD":;
+    //    D = dim_params["D"];
+    //    kscale = L_0/D;
+    
+    //if "k0" in dim_params:;
+    params["k0"] = dim_params["k0"]*params["kscale"];
+    //if dim_params["dispersion"]:;
+    //        params["k0_std"] = dim_params["k0_std"]*kscale;
+    //else:;
+    //    params["k01"] = dim_params["k01"]*kscale;
+    //    params["k02"] = dim_params["k02"]*kscale;
+    //    if dim_params["dispersion"]:;
+    //        params["k01_std"] = dim_params["k01_std"]*kscale;
+    //        params["k02_std"] = dim_params["k02_std"]*kscale;
+    
+    //if "alpha" in dim_params:;
+    params["alpha"] = dim_params["alpha"];
+    //else:;
+    //   params["alpha1"] = dim_params["alpha1"];
+    //   params["alpha2"] = dim_params["alpha2"];
+    //if "E0" in dim_params:;
+    params["E0"] = dim_params["E0"]/E_0;
+    //    if dim_params["dispersion"]:;
+    //        params["E0_std"] = dim_params["E0_std"]/E_0;
+    //else:;
+    //    params["E01"] = dim_params["E01"]/E_0;
+    //    params["E02"] = dim_params["E02"]/E_0;
+    //    if dim_params["dispersion"]:;
+    //        params["E01_std"] = dim_params["E01_std"]/E_0;
+    //        params["E02_std"] = dim_params["E02_std"]/E_0;
+    params["Ru"] = dim_params["Ru"]*I_0/E_0;
+    params["Cdl"] = dim_params["Cdl"]*dim_params["a"]*E_0/(I_0*T_0);
+    //if "CdlE" in dim_params:;
+    params["CdlE"] = dim_params["CdlE"]*E_0;
+    params["CdlE2"] = dim_params["CdlE2"]*std::pow(E_0,2);
+    params["CdlE3"] = dim_params["CdlE3"]*std::pow(E_0,3);
+}
+
+
+void TestDriverInterface::read_in_data(std::string filename) {
+    std::cout << "reading in data from filename "<<filename<<std::endl;
+    std::string line;
+    std::ifstream file(filename.c_str(),std::ifstream::in);
+    assert (file.is_open());
+    double tin,Iin;
+    expI.clear();
+    expt.clear();
+    while (std::getline(file,line)) {
+        std::istringstream iss(line);
+        iss >> tin;
+        iss >> Iin;
+        expI.push_back(Iin);
+        expt.push_back(tin);
+    }
+     
+
+    std::cout << "done reading. read in "<<expt.size()<<" data points "<<std::endl;
+
+    assert(filename.compare("../data/e28q 9 b current_cv_current") == 0);
+
+    dim_params["Estart"] = -0.85;
+    dim_params["Ereverse"] = -0.1;
+    dim_params["omega"] = 8.95925020;
+    dim_params["dE"] = 150e-3;
+    dim_params["v"] = -27.94e-3;
+    dim_params["T"] = 25+273.15;
+    dim_params["a"] = 0.03;
+    dim_params["c_inf"] = 1e-3*1e-3;
+    dim_params["Ru"] = 35.0;
+    dim_params["Cdl"] = 128.044343e-6;
+    dim_params["CdlE"] = -0.421004342;
+    dim_params["CdlE2"] = -0.398850851;
+    dim_params["CdlE3"] = -0.301706397;
+    dim_params["Gamma"] = 6.5e-12;
+    dim_params["E0"] = -0.421;
+    dim_params["k0"] = 4000;
+    dim_params["alpha"] = 0.5;
+
+    non_dim(params,dim_params,expt,expI);
+
+    // setup sim vectors
+    t.resize(expt.size());
+    Itot.resize(expI.size());
+    for (int i=0; i<expt.size(); i++) {
+        t[i] = expt[i];
+    }
+}
+
+
+int TestDriverInterface::e_surface_driver(){
+
+  if (multiProcAnalysisFlag) {
+    Cerr << "Error: e_surface direct fn does not support "
+	 << "multiprocessor analyses." << std::endl;
+    abort_handler(-1);
+  }
+  if (numVars < 1 || numVars > 5 || numADIV || numADRV) {
+    Cerr << "Error: Bad variable types in e_surface direct fn."
+	 << std::endl;
+    abort_handler(INTERFACE_ERROR);
+  }
+  if (numFns < 1) {
+    Cerr << "Error: Bad number of functions in e_surface direct fn."
+	 << std::endl;
+    abort_handler(INTERFACE_ERROR);
+  }
+  if (hessFlag || gradFlag) {
+    Cerr << "Error: Gradients and Hessians not supported in e_surface"
+	 << "direct fn." << std::endl;
+    abort_handler(INTERFACE_ERROR);
+  }
+
+  //make sure we have exp data
+  if (expI.size() == 0) {
+    read_in_data("../data/e28q 9 b current_cv_current");
+  }
+
+  if (numFns > 1) {
+    std::cout << "requested "<<numFns<<" responses"<<std::endl;
+    Real initial_time = 0.0;
+    Real final_time = 2.0*(params["Ereverse"]-params["Estart"]);
+    Real delta_t = (final_time - initial_time) / numFns;
+    t.resize(numFns);
+    for (size_t i=0; i<numFns; ++i) {
+        t[i] = i*delta_t;
+    }
+  }
+
+  const double E_0 = params["E_0"];
+  const double I_0 = params["I_0"];
+  const double T_0 = params["T_0"];
+  const double L_0 = params["L_0"];
+  const double kscale = params["kscale"];
+
+  std::map<var_t, Real>::iterator m_iter = xCM.find(VAR_k0);
+  if (m_iter != xCM.end()) {
+      std::cout << "setting k0 to "<<m_iter->second<<std::endl;
+      params["k0"] = m_iter->second*kscale; 
+  }
+  m_iter = xCM.find(VAR_E0);
+  if (m_iter != xCM.end()) {
+      std::cout << "setting E0 to "<<m_iter->second<<std::endl;
+      params["E0"] = m_iter->second/E_0; 
+  }
+  m_iter = xCM.find(VAR_alpha);
+  if (m_iter != xCM.end()) {
+      std::cout << "setting alpha to "<<m_iter->second<<std::endl;
+      params["alpha"] = m_iter->second; 
+  }
+  m_iter = xCM.find(VAR_Ru);
+  if (m_iter != xCM.end()) {
+      std::cout << "setting Ru to "<<m_iter->second<<std::endl;
+      params["Ru"] = m_iter->second*I_0/E_0; 
+  }
+  m_iter = xCM.find(VAR_Cdl);
+  if (m_iter != xCM.end()) {
+      std::cout << "setting Cdl to "<<m_iter->second<<std::endl;
+      params["Cdl"] = m_iter->second*dim_params["a"]*E_0/(I_0*T_0); 
+  }
+
+  e_surface(params,Itot,t);
+
+  if (numFns == 1) {
+      fnVals[0] = 0;
+      double scale = 0.0;
+      std::ofstream file("tmp.dat");
+      for (size_t i=0; i<t.size(); ++i) {
+          fnVals[0] += std::pow(Itot[i]-expI[i],2);
+          file << t[i] << " " <<Itot[i] <<" "<< expI[i] << std::endl;
+          scale += std::pow(expI[i],2);
+      }
+      file.close();
+      fnVals[0] = std::sqrt(fnVals[0]/scale);
+      std::cout << "objective function eval = "<<fnVals[0]<<std::endl;
+  } else {
+      for (size_t i=0; i<numFns; ++i) {
+        //if (directFnASV[i] & 1) {
+          fnVals[i] = Itot[i];
+        //}
+      }
+  }
+
+  return 0; // no failure
+}
+
+
+
+int TestDriverInterface::e_solution_driver(){
+
+  if (multiProcAnalysisFlag) {
+    Cerr << "Error: e_surface direct fn does not support "
+	 << "multiprocessor analyses." << std::endl;
+    abort_handler(-1);
+  }
+  if (numVars < 1 || numVars > 5 || numADIV || numADRV) {
+    Cerr << "Error: Bad variable types in e_surface direct fn."
+	 << std::endl;
+    abort_handler(INTERFACE_ERROR);
+  }
+  if (numFns < 1) {
+    Cerr << "Error: Bad number of functions in e_surface direct fn."
+	 << std::endl;
+    abort_handler(INTERFACE_ERROR);
+  }
+  if (hessFlag || gradFlag) {
+    Cerr << "Error: Gradients and Hessians not supported in e_surface"
+	 << "direct fn." << std::endl;
+    abort_handler(INTERFACE_ERROR);
+  }
+
+  Real k0 = xC[0], alpha = 0.5, E0 = 0.0, Cdl = 0.0037, Ru = 2.74;
+  if ( numVars >= 2 ) alpha  = xC[1];
+  if ( numVars >= 3 ) E0  = xC[2];
+  if ( numVars >= 4 ) Cdl  = xC[3];
+  if ( numVars >= 5 ) Ru = xC[4];
+
+  std::map<std::string,double> params;
+  params["k0"] = k0;
+  params["alpha"] = alpha;
+  params["Cdl"] = Cdl;
+  params["Ru"] = Ru;
+  params["E0"] = E0;
+  // params for GC01_FeIII-1mM_1M-KCl_02_009Hz.txt
+  params["dE"] = 3.125797;
+  params["Estart"] = -3.907246;
+  params["Ereverse"] = -19.536232;
+  params["omega"] = 16.214305;
+  std::vector<double> Itot,t;
+
+  Real initial_time = 0.0;
+  Real final_time = 2.0*(params["Ereverse"]-params["Estart"]);
+  Real delta_t = 0.3;
+  delta_t = (final_time - initial_time) / numFns;
+  t.resize(numFns);
+
+  for (size_t i=0; i<numFns; ++i) {
+      t[i] = i*delta_t;
+  }
+
+  e_solution(params,Itot,t);
+
+  // response at initial time isn't included as it isn't a fn of some params.
+  Real time = initial_time, y_stead, y_trans;
+  for (size_t i=0; i<numFns; ++i) {
+    if (directFnASV[i] & 1) {
+      fnVals[i] = Itot[i];
+    }
+  }
+
+  return 0; // no failure
+}
+
+
 
 
 // -----------------------------------------

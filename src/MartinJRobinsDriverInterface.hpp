@@ -47,9 +47,8 @@ private:
   //- Heading: Simulators and test functions
   //
 
-  int e_surface();
-  int e_solution();
-  int seq_electron_transfer();
+  int e_surface_driver();
+  int e_solution_driver();
 
 };
 
